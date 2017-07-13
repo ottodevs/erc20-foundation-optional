@@ -14,6 +14,13 @@ contract Foundation {
 }
 
 
+
+
+/// one solution to the looping update variables problem is to allow users to have negative balances, this might be ok because as long as people use the balancesOf function it will return the expected value.
+
+
+
+
 /**
  * @title Standard ERC20 token with support for FoundationId
  * @author Jared Bowie
@@ -25,9 +32,11 @@ contract Foundation {
 contract Erc20Found is ERC20Basic {
   using SafeMath for uint;
 
-  address foundationAddress = 0xd615d0FCfE6c460AA79cdCfA82B3b420A7E89503;
+  address foundationAddress = 0x17ff6026929c63a5855565b03c14a752897d8984;
 
-  mapping(address => uint) balances;
+  mapping(address => uint) private balances;
+  mapping(bytes32 => uint) private balancesF;
+
   mapping (address => mapping (address => uint)) allowed;
   mapping(bytes32 => bool) foundP; //foundationid to bool
   mapping(bytes32 => bool) mutex;
@@ -73,7 +82,7 @@ contract Erc20Found is ERC20Basic {
 
   //checks if foundp is on
 
-  function foundPTrue(address _addr) constant returns (bool anyAddrTrue) {
+  function foundPToggle(address _addr) constant returns (bool anyAddrTrue) {
     if (foundP[getFoundId(_addr)]) {
       return true;
     }
@@ -82,10 +91,15 @@ contract Erc20Found is ERC20Basic {
     }
   }
 
-  function toggleFoundP() returns (bool success) {
+  //cannot turn off
+  // the security concern here is what happens when a user deletes addresses from his foundationid
+
+  function turnOnFoundP() returns (bool success) {
     Foundation f = Foundation(foundationAddress);
     bytes32 foundId = f.resolveToName(msg.sender);
-    foundP[foundId]=!foundP[foundId];
+    require(!foundP[foundId]);
+    foundP[foundId]=true;
+    balancesF[foundId]=balanceOfAll(foundId);
     return true;
   }
 
@@ -149,8 +163,10 @@ contract Erc20Found is ERC20Basic {
   // must prevent any usage of addresses while in operation
   //
 
-  /// this doesn't work because of unknown gas costs to loop
+  /// this doesn't work as a loop because of unknown gas costs to loop
 
+
+/*
   function transferF(bytes32 foundId, address _to, uint _value) isMutexed(foundId) {
     require(balanceOfF(foundId) >= _value);
     uint totalSubbed;
@@ -168,7 +184,7 @@ contract Erc20Found is ERC20Basic {
       }
     }
     assert(totalSubbed<=_value);
-  }
+  }*/
 
   /*
   * @dev transfer token for a specified address
@@ -181,8 +197,9 @@ contract Erc20Found is ERC20Basic {
   function transfer(address _to, uint _value) onlyPayloadSize(2 * 32) {
     bytes32 foundId=getFoundId(msg.sender);
     if (foundP[foundId]) {
-        transferF(foundId, _to, _value);
-        //Event transfer
+      balancesF[foundId] = balancesF[foundId].sub(_value);
+      balances[_to] = balances[_to].add(_value);
+      //Transfer(msg.sender, _to, _value);
       }
     else {
       balances[msg.sender] = balances[msg.sender].sub(_value);
@@ -199,7 +216,7 @@ contract Erc20Found is ERC20Basic {
   */
 
 
-  function balanceOfF(bytes32 foundId) private constant returns (uint balance) {
+  function balanceOfAll(bytes32 foundId) private constant returns (uint balance) {
     uint totalBalance;
     address[] memory allAddr=getFoundAddresses(foundId);
     for (uint p = 0; p < allAddr.length; p++) {
@@ -217,9 +234,8 @@ contract Erc20Found is ERC20Basic {
   */
   function balanceOf(address _owner) constant returns (uint balance) {
     bytes32 foundId=getFoundId(_owner);
-
     if (foundP[foundId]) {
-      return balanceOfF(foundId);
+      return balancesF[foundId];
     }
     else {
       return balances[_owner];

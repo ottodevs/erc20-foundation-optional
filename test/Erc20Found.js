@@ -64,13 +64,13 @@ contract('Erc20Found', function(accounts) {
         }).then(function(transaction) {
             return u.balanceOf(account3);
         }).then(function(balance) {
-            console.log(balance);
+            console.log("balancea " + balance);
             assert.equal(balance.toNumber(), deduct, "Balance not as expected");
-            return u.toggleFoundP({from: account3});
+            return u.turnOnFoundP({from: account3});
         }).then(function(transaction) {
             return u.balanceOf(account3);
         }).then(function(balance) {
-            console.log(balance);
+            console.log("balanceb " + balance);
             assert.equal(balance.toNumber(), deduct+deduct2, "balance not as expected");
         });
     });
@@ -83,15 +83,23 @@ contract('Erc20Found', function(accounts) {
         }).then(function(transaction) {
             return u.transfer(account4, deduct2, {from: account1});
         }).then(function(transaction) {
-            return u.toggleFoundP({from: account3});
+            return u.turnOnFoundP({from: account3});
         }).then(function(transaction) {
             return u.transfer(account5, deduct+deduct2, {from: account3});
         }).then(function(transaction) {
-            return u.balanceOf(account5);
-        }).then(function(balance) {
-            console.log(balance);
+            return u.getFoundId(account5);
+        }).then(function(foundid) {
+            console.log(foundid);
+         /*   return u.foundPTrue.call(account5);
+        }).then(function(foundp) {
+            console.log(foundp);*/
+
+/*            return u.balanceOf(account5);
+         }).then(function(balance) {
+           console.log(balance);
             assert.equal(balance.toNumber(), deduct+deduct2, "Balance not as expected");
-        });
+       */
+            });
     });
 
 });
