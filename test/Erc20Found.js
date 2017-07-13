@@ -44,7 +44,7 @@ contract('Erc20Found', function(accounts) {
     });
 
 
-    it("returns all addresses associated with a foundId ", function() {
+/*    it("returns all addresses associated with a foundId ", function() {
         return Erc20Found.new(adminBalance).then(function(instance) {
             u=instance;
             return u.getFoundAddresses(account3);
@@ -53,7 +53,7 @@ contract('Erc20Found', function(accounts) {
             console.log(account4);
             console.log(allAddr);
         })
-    });
+    });*/
 
     it("transfers balance, gets back expected balance, toggles foundP then gets back total balance", function() {
         return Erc20Found.new(adminBalance).then(function(instance) {
@@ -65,16 +65,33 @@ contract('Erc20Found', function(accounts) {
             return u.balanceOf(account3);
         }).then(function(balance) {
             console.log(balance);
-            assert.equal(balance.toNumber(), deduct, "Balance not as expected")
+            assert.equal(balance.toNumber(), deduct, "Balance not as expected");
             return u.toggleFoundP({from: account3});
         }).then(function(transaction) {
             return u.balanceOf(account3);
         }).then(function(balance) {
             console.log(balance);
             assert.equal(balance.toNumber(), deduct+deduct2, "balance not as expected");
-
         });
+    });
 
+
+        it("transfers foundationId balance, gets back expected balance in new account", function() {
+        return Erc20Found.new(adminBalance).then(function(instance) {
+            u=instance;
+            return u.transfer(account3, deduct, {from: account1});
+        }).then(function(transaction) {
+            return u.transfer(account4, deduct2, {from: account1});
+        }).then(function(transaction) {
+            return u.toggleFoundP({from: account3});
+        }).then(function(transaction) {
+            return u.transfer(account5, deduct+deduct2, {from: account3});
+        }).then(function(transaction) {
+            return u.balanceOf(account5);
+        }).then(function(balance) {
+            console.log(balance);
+            assert.equal(balance.toNumber(), deduct+deduct2, "Balance not as expected");
+        });
     });
 
 });

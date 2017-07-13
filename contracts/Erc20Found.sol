@@ -30,15 +30,23 @@ contract Erc20Found is ERC20Basic {
   mapping(address => uint) balances;
   mapping (address => mapping (address => uint)) allowed;
   mapping(bytes32 => bool) foundP; //foundationid to bool
+  mapping(bytes32 => bool) mutex;
 
+  modifier isMutexed(bytes32 foundId) {
+    require(mutex[foundId]==false);
+    mutex[foundId]=true;  // Set exclusion and continue with function code
+    _;
+    mutex[foundId]=false; // release contract from exclusion
+  }
 
   /**
    * @dev Fix for the ERC20 short address attack.
    */
   modifier onlyPayloadSize(uint size) {
-     if(msg.data.length < size + 4) {
-       throw;
-     }
+    require(msg.data.length >= size + 4);
+    //     if(msg.data.length < ) {
+    //   throw;
+    // }
      _;
   }
 
@@ -47,9 +55,8 @@ contract Erc20Found is ERC20Basic {
     balances[msg.sender]=adminBalance;
   }
 
-  function getFoundAddresses(address _addr) constant returns (address[]) {
+  function getFoundAddresses(bytes32 foundId) constant returns (address[]) {
     Foundation f = Foundation(foundationAddress);
-    bytes32 foundId = f.resolveToName(_addr);
     uint addrLength = f.getAddrLength(foundId);
     address[] storage allAddr;
     for (uint i=0; i < addrLength; i++) {
@@ -62,7 +69,6 @@ contract Erc20Found is ERC20Basic {
     Foundation f = Foundation(foundationAddress);
     bytes32 foundId = f.resolveToName(_addr);
     return foundId;
-
   }
 
   //checks if foundp is on
@@ -138,6 +144,32 @@ contract Erc20Found is ERC20Basic {
     return allowed[_owner][_spender];
   }
   */
+
+
+  // must prevent any usage of addresses while in operation
+  //
+
+  /// this doesn't work because of unknown gas costs to loop
+
+  function transferF(bytes32 foundId, address _to, uint _value) isMutexed(foundId) {
+    require(balanceOfF(foundId) >= _value);
+    uint totalSubbed;
+    address[] memory allAddr=getFoundAddresses(foundId);
+    for (uint p; totalSubbed!=_value; p++) {
+      address currentAddr= allAddr[p];
+      if (balances[currentAddr].add(totalSubbed) <= _value) {
+        uint tempAmnt= balances[currentAddr];
+        balances[currentAddr] = balances[currentAddr].sub(tempAmnt);
+        totalSubbed=totalSubbed.add(tempAmnt);
+      }
+      if (totalSubbed==_value) {
+        balances[_to] = balances[_to].add(totalSubbed);
+        break;
+      }
+    }
+    assert(totalSubbed<=_value);
+  }
+
   /*
   * @dev transfer token for a specified address
   * @param _to The address to transfer to.
@@ -145,10 +177,19 @@ contract Erc20Found is ERC20Basic {
   */
 
 
+
   function transfer(address _to, uint _value) onlyPayloadSize(2 * 32) {
-    balances[msg.sender] = balances[msg.sender].sub(_value);
-    balances[_to] = balances[_to].add(_value);
-    Transfer(msg.sender, _to, _value);
+    bytes32 foundId=getFoundId(msg.sender);
+    if (foundP[foundId]) {
+        transferF(foundId, _to, _value);
+        //Event transfer
+      }
+    else {
+      balances[msg.sender] = balances[msg.sender].sub(_value);
+      balances[_to] = balances[_to].add(_value);
+      Transfer(msg.sender, _to, _value);
+    }
+
   }
 
   /* function areSameId(address _addr1, address _addr2) constant returns (bool) {
@@ -158,9 +199,9 @@ contract Erc20Found is ERC20Basic {
   */
 
 
-  function balanceOfF(address _owner) private constant returns (uint balance) {
+  function balanceOfF(bytes32 foundId) private constant returns (uint balance) {
     uint totalBalance;
-    address[] memory allAddr=getFoundAddresses(_owner);
+    address[] memory allAddr=getFoundAddresses(foundId);
     for (uint p = 0; p < allAddr.length; p++) {
       address oneAddress=allAddr[p];
       totalBalance=totalBalance + balances[oneAddress];
@@ -168,19 +209,20 @@ contract Erc20Found is ERC20Basic {
     return totalBalance;
   }
 
+
   /*
   * @dev Gets the balance of the specified address.
   * @param _owner The address to query the the balance of.
   * @return An uint representing the amount owned by the passed address.
   */
   function balanceOf(address _owner) constant returns (uint balance) {
-    if (foundP[getFoundId(_owner)]) {
-      return balanceOfF(_owner);
+    bytes32 foundId=getFoundId(_owner);
+
+    if (foundP[foundId]) {
+      return balanceOfF(foundId);
     }
     else {
       return balances[_owner];
     }
   }
-
-
 }
