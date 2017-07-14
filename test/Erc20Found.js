@@ -66,16 +66,24 @@ contract('Erc20Found', function(accounts) {
         }).then(function(balance) {
             console.log("balancea " + balance);
             assert.equal(balance.toNumber(), deduct, "Balance not as expected");
+            return u.balanceOf(account3);
+        }).then(function(balance) {
+            console.log("balanceb " + balance);
             return u.turnOnFoundP({from: account3});
         }).then(function(transaction) {
             return u.balanceOf(account3);
         }).then(function(balance) {
-            console.log("balanceb " + balance);
+            console.log("balancec " + balance);
+            return u.tranToMyF({from: account4});
+        }).then(function(transaction) {
+            return u.balanceOf(account3);
+        }).then(function(balance) {
+            console.log("balanced " + balance);
             assert.equal(balance.toNumber(), deduct+deduct2, "balance not as expected");
         });
     });
 
-
+/*
         it("transfers foundationId balance, gets back expected balance in new account", function() {
         return Erc20Found.new(adminBalance).then(function(instance) {
             u=instance;
@@ -99,7 +107,7 @@ contract('Erc20Found', function(accounts) {
            console.log(balance);
             assert.equal(balance.toNumber(), deduct+deduct2, "Balance not as expected");
        */
-            });
-    });
+//            });
+//    });
 
 });

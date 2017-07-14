@@ -8,9 +8,10 @@ import 'zeppelin-solidity/contracts/token/ERC20Basic.sol';
 
 contract Foundation {
   uint addrSize;
-  function resolveToName(address _addr) constant returns (bytes32) {  }
-  function getAddrLength(bytes32 _name) constant returns (uint) {  }
-  function getAddrIndex(bytes32 _name, uint index) constant returns (address) {  }
+  function resolveToName(address _addr) constant returns (bytes32) {}
+  function getAddrLength(bytes32 _name) constant returns (uint) {}
+  function getAddrIndex(bytes32 _name, uint index) constant returns (address) {}
+  function hasName(address _addr) constant returns (bool) {}
 }
 
 
@@ -64,6 +65,8 @@ contract Erc20Found is ERC20Basic {
     balances[msg.sender]=adminBalance;
   }
 
+
+  //use this to display existing balances that haven't been transfered over
   function getFoundAddresses(bytes32 foundId) constant returns (address[]) {
     Foundation f = Foundation(foundationAddress);
     uint addrLength = f.getAddrLength(foundId);
@@ -80,9 +83,16 @@ contract Erc20Found is ERC20Basic {
     return foundId;
   }
 
+  function hasFName(address _addr) constant returns (bool) {
+    Foundation f = Foundation(foundationAddress);
+    bool hasF = f.hasName(_addr);
+    return hasF;
+  }
+
   //checks if foundp is on
 
-  function foundPToggle(address _addr) constant returns (bool anyAddrTrue) {
+  function foundPTrue(address _addr) constant returns (bool anyAddrTrue) {
+    require(hasFName(_addr));
     if (foundP[getFoundId(_addr)]) {
       return true;
     }
@@ -91,15 +101,69 @@ contract Erc20Found is ERC20Basic {
     }
   }
 
-  //cannot turn off
+  function transferF(bytes32 _foundIdTo, uint _value) onlyPayloadSize(2 * 32) {
+    bytes32 foundIdFrom=getFoundId(msg.sender);
+    if (foundP[foundIdFrom]==true) {
+      balancesF[foundIdFrom] = balancesF[foundIdFrom].sub(_value);
+      balancesF[_foundIdTo] = balancesF[_foundIdTo].add(_value);
+      //      TransferFtF(msg.sender, _to, _value);
+      }
+    else {
+      balances[msg.sender] = balances[msg.sender].sub(_value);
+      balancesF[_foundIdTo] = balancesF[_foundIdTo].add(_value);
+      //      TransferAtF(msg.sender, _to, _value);
+    }
+  }
+
+  function tranToMyF() {
+    require(balances[msg.sender]>0);
+    uint totalBalance;
+    bytes32 foundId=getFoundId(msg.sender);
+    require(foundP[foundId]==true);
+    totalBalance = balances[msg.sender];
+    balances[msg.sender] = balances[msg.sender].sub(totalBalance);
+    balancesF[foundId] = balancesF[foundId].add(totalBalance);
+  }
+
+  function transfer(address _to, uint _value) onlyPayloadSize(2 * 32) {
+    bytes32 foundId=getFoundId(msg.sender);
+    if (foundP[foundId]==true) {
+      balancesF[foundId] = balancesF[foundId].sub(_value);
+      balances[_to] = balances[_to].add(_value);
+      //Transfer(msg.sender, _to, _value);
+      }
+    else {
+      balances[msg.sender] = balances[msg.sender].sub(_value);
+      balances[_to] = balances[_to].add(_value);
+      Transfer(msg.sender, _to, _value);
+    }
+
+  }
+
+
+
+
   // the security concern here is what happens when a user deletes addresses from his foundationid
+  // we also can't loop through addresses to transfer balances
 
   function turnOnFoundP() returns (bool success) {
-    Foundation f = Foundation(foundationAddress);
-    bytes32 foundId = f.resolveToName(msg.sender);
-    require(!foundP[foundId]);
-    foundP[foundId]=true;
-    balancesF[foundId]=balanceOfAll(foundId);
+    require(hasFName(msg.sender)==true);
+    bytes32 foundId = getFoundId(msg.sender);
+    uint totalBalance;
+    // turn off
+    if (foundP[foundId]==true) {
+      foundP[foundId]=false;
+      totalBalance =  balancesF[foundId];
+      balancesF[foundId]= balancesF[foundId].sub(totalBalance);
+      balances[msg.sender]=balances[msg.sender].add(totalBalance);
+    }
+    // turn on
+    else {
+      foundP[foundId]=true;
+      totalBalance =  balances[msg.sender];
+      balances[msg.sender]=balances[msg.sender].sub(totalBalance);
+      balancesF[foundId]=balancesF[foundId].add(totalBalance);
+    }
     return true;
   }
 
@@ -166,26 +230,6 @@ contract Erc20Found is ERC20Basic {
   /// this doesn't work as a loop because of unknown gas costs to loop
 
 
-/*
-  function transferF(bytes32 foundId, address _to, uint _value) isMutexed(foundId) {
-    require(balanceOfF(foundId) >= _value);
-    uint totalSubbed;
-    address[] memory allAddr=getFoundAddresses(foundId);
-    for (uint p; totalSubbed!=_value; p++) {
-      address currentAddr= allAddr[p];
-      if (balances[currentAddr].add(totalSubbed) <= _value) {
-        uint tempAmnt= balances[currentAddr];
-        balances[currentAddr] = balances[currentAddr].sub(tempAmnt);
-        totalSubbed=totalSubbed.add(tempAmnt);
-      }
-      if (totalSubbed==_value) {
-        balances[_to] = balances[_to].add(totalSubbed);
-        break;
-      }
-    }
-    assert(totalSubbed<=_value);
-  }*/
-
   /*
   * @dev transfer token for a specified address
   * @param _to The address to transfer to.
@@ -194,28 +238,7 @@ contract Erc20Found is ERC20Basic {
 
 
 
-  function transfer(address _to, uint _value) onlyPayloadSize(2 * 32) {
-    bytes32 foundId=getFoundId(msg.sender);
-    if (foundP[foundId]) {
-      balancesF[foundId] = balancesF[foundId].sub(_value);
-      balances[_to] = balances[_to].add(_value);
-      //Transfer(msg.sender, _to, _value);
-      }
-    else {
-      balances[msg.sender] = balances[msg.sender].sub(_value);
-      balances[_to] = balances[_to].add(_value);
-      Transfer(msg.sender, _to, _value);
-    }
-
-  }
-
-  /* function areSameId(address _addr1, address _addr2) constant returns (bool) {
-    Foundation f = Foundation(foundationAddress);
-    return f.areSameId(_addr1, _addr2);
-  }
-  */
-
-
+  ///don't need this anymore?
   function balanceOfAll(bytes32 foundId) private constant returns (uint balance) {
     uint totalBalance;
     address[] memory allAddr=getFoundAddresses(foundId);
@@ -234,7 +257,7 @@ contract Erc20Found is ERC20Basic {
   */
   function balanceOf(address _owner) constant returns (uint balance) {
     bytes32 foundId=getFoundId(_owner);
-    if (foundP[foundId]) {
+    if (foundP[foundId]==true) {
       return balancesF[foundId];
     }
     else {
