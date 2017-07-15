@@ -12,6 +12,7 @@ contract Foundation {
   function getAddrLength(bytes32 _name) constant returns (uint) {}
   function getAddrIndex(bytes32 _name, uint index) constant returns (address) {}
   function hasName(address _addr) constant returns (bool) {}
+  function areSameId(address _addr1, address _addr2) constant returns (bool) {}
 }
 
 
@@ -89,6 +90,11 @@ contract Erc20Found is ERC20Basic {
     return hasF;
   }
 
+  function areSameId(address _addr1, address _addr2) constant returns (bool) {
+    Foundation f = Foundation(foundationAddress);
+    bool areSameP = f.areSameId(_addr1, _addr2);
+    return areSameP;
+  }
   //checks if foundp is on
 
   function foundPTrue(address _addr) constant returns (bool anyAddrTrue) {
@@ -115,13 +121,15 @@ contract Erc20Found is ERC20Basic {
     }
   }
 
-  function tranToMyF() {
-    require(balances[msg.sender]>0);
+  // fix to enable transfering from anywhere
+  function tranToMyF(address _fromAddr) {
+    require(balances[_fromAddr]>0);
+    require(areSameId(msg.sender, _fromAddr));
     uint totalBalance;
     bytes32 foundId=getFoundId(msg.sender);
     require(foundP[foundId]==true);
-    totalBalance = balances[msg.sender];
-    balances[msg.sender] = balances[msg.sender].sub(totalBalance);
+    totalBalance = balances[_fromAddr];
+    balances[_fromAddr] = balances[_fromAddr].sub(totalBalance);
     balancesF[foundId] = balancesF[foundId].add(totalBalance);
   }
 
