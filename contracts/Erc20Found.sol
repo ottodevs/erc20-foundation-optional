@@ -43,6 +43,8 @@ contract Erc20Found is ERC20Basic {
   mapping(bytes32 => bool) foundP; //foundationid to bool
   mapping(bytes32 => bool) mutex;
 
+  event Approval(address indexed owner, address indexed spender, uint value);
+
   modifier isMutexed(bytes32 foundId) {
     require(mutex[foundId]==false);
     mutex[foundId]=true;  // Set exclusion and continue with function code
@@ -206,19 +208,20 @@ contract Erc20Found is ERC20Basic {
    * @param _spender The address which will spend the funds.
    * @param _value The amount of tokens to be spent.
    */
-  /*
+
   function approve(address _spender, uint _value) {
 
     // To change the approve amount you first have to reduce the addresses`
     //  allowance to zero by calling `approve(_spender, 0)` if it is not
     //  already 0 to mitigate the race condition described here:
     //  https://github.com/ethereum/EIPs/issues/20#issuecomment-263524729
-    if ((_value != 0) && (allowed[msg.sender][_spender] != 0)) throw;
-
+    //    require(_value>0);
+    require(allowed[msg.sender][_spender]==0 || _value>0);
+    //    if ((_value != 0) && (allowed[msg.sender][_spender] != 0)) throw;
     allowed[msg.sender][_spender] = _value;
     Approval(msg.sender, _spender, _value);
   }
-  */
+
   /*
    * @dev Function to check the amount of tokens than an owner allowed to a spender.
    * @param _owner address The address which owns the funds.
@@ -264,10 +267,10 @@ contract Erc20Found is ERC20Basic {
   * @return An uint representing the amount owned by the passed address.
   */
   function balanceOf(address _owner) constant returns (uint balance) {
-    bytes32 foundId=getFoundId(_owner);
-    if (foundP[foundId]==true) {
+    if (hasFName(_owner) && foundP[getFoundId(_owner)]==true)  {
+      bytes32 foundId=getFoundId(_owner);
       return balancesF[foundId];
-    }
+      }
     else {
       return balances[_owner];
     }
