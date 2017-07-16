@@ -8,14 +8,6 @@ import 'zeppelin-solidity/contracts/token/ERC20Basic.sol';
 
 
 
-/**
-@title Foundation
-@author Timothy Galebach, Jared Bowie
-@dev An ID that unifies a single users multiple addresses on the Ethereum blockchain.
-*/
-
-
-
 contract Foundation {
   uint addrSize;
   function resolveToName(address _addr) constant returns (bytes32) {}
@@ -24,13 +16,6 @@ contract Foundation {
   function hasName(address _addr) constant returns (bool) {}
   function areSameId(address _addr1, address _addr2) constant returns (bool) {}
 }
-
-
-
-
-/// one solution to the looping update variables problem is to allow users to have negative balances, this might be ok because as long as people use the balancesOf function it will return the expected value.
-
-
 
 
 /**
@@ -87,7 +72,7 @@ contract Erc20Found is ERC20Basic {
 
   //////////////////////////////////////////////
   //////////FOUNDATION FUNCTIONS ///////////////
-    //////////////////////////////////////////////
+  //////////////////////////////////////////////
 
   //use this to display existing balances that haven't been transfered over
   function getFoundAddresses(bytes32 foundId) constant returns (address[]) {
@@ -344,38 +329,58 @@ contract Erc20Found is ERC20Basic {
     }
   }
 
-  /*
+
+
+ function allowanceAtoA (address _owner, address _spender) private constant returns (uint remaining) {
+   return allowedAtoA[_owner][_spender];
+ }
+
+ function allowanceAtoF (address _owner, address _spender) private constant returns (uint remaining) {
+   require(hasFName(_spender) && foundP[getFoundId(_spender)]==true);
+    bytes32 spenderF = getFoundId(_spender);
+    return allowedAtoF[_owner][spenderF];
+ }
+
+ function allowanceFtoA (address _owner, address _spender) private constant returns (uint remaining) {
+   require(hasFName(_owner) && foundP[getFoundId(_owner)]==true);
+   bytes32 ownerF = getFoundId(_owner);
+   return allowedFtoA[ownerF][_spender];
+ }
+
+ function allowanceFtoF (address _owner, address _spender) private constant returns (uint remaining) {
+   require(hasFName(_owner) && foundP[getFoundId(_owner)]==true);
+   require(hasFName(_spender) && foundP[getFoundId(_spender)]==true);
+   bytes32 ownerF = getFoundId(_owner);
+   bytes32 spenderF = getFoundId(_spender);
+   return allowedFtoF[ownerF][spenderF];
+
+ }
+
+
+ /*
    * @dev Function to check the amount of tokens than an owner allowed to a spender.
    * @param _owner address The address which owns the funds.
    * @param _spender address The address which will spend the funds.
    * @return A uint specifing the amount of tokens still avaible for the spender.
    */
-/*
-  function allowance(address _owner, address _spender) constant returns (uint remaining) {
-    bytes32 fOwner;
-    bytes32 fSpender;
-    if (hasFName(_owner) && foundP[getFoundId(_owner)]==true)  {
 
-      if (hasFName(_spender) && foundP[getFoundId(_spender)]==true) {
-        fOwner=getFoundId(_owner);
-        fSpender=getFoundId(_spender);
-        return allowedFb[fOwner][fSpender];
-      }
-      else {
-        fOwner=getFoundId(_owner);
-        return allowedFa[fOwner][_spender];
-      }
+  function allowance(address _owner, address _spender) constant returns (uint remaining) {
+    bool ownerF=useFoundP(_owner);
+    bool spenderF=useFoundP(_spender);
+    if (ownerF && spenderF) {
+      allowanceFtoF(_owner, _spender);
     }
-    else {
-      if (hasFName(_spender) && foundP[getFoundId(_spender)]==true) {
-        fSpender=getFoundId(_spender);
-        return allowedb[_owner][fSpender];
-      }
-      else {
-        return alloweda[_owner][_spender];
-      }
+    if (ownerF && !spenderF) {
+      allowanceFtoA(_owner, _spender);
+    }
+    if (!ownerF && spenderF) {
+      allowanceAtoF(_owner, _spender);
+    }
+    if (!ownerF && !spenderF) {
+      allowanceAtoA(_owner, _spender);
+    }
   }
-  }
+
 /*
 
   // must prevent any usage of addresses while in operation
@@ -383,25 +388,6 @@ contract Erc20Found is ERC20Basic {
 
   /// this doesn't work as a loop because of unknown gas costs to loop
 
-
-  /*
-  * @dev transfer token for a specified address
-  * @param _to The address to transfer to.
-  * @param _value The amount to be transferred.
-  */
-
-
-
-  ///don't need this anymore?
-  function balanceOfAll(bytes32 foundId) private constant returns (uint balance) {
-    uint totalBalance;
-    address[] memory allAddr=getFoundAddresses(foundId);
-    for (uint p = 0; p < allAddr.length; p++) {
-      address oneAddress=allAddr[p];
-      totalBalance=totalBalance + balances[oneAddress];
-    }
-    return totalBalance;
-  }
 
 
   /*
