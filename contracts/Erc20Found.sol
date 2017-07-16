@@ -6,6 +6,14 @@ import 'zeppelin-solidity/contracts/SafeMath.sol';
 import 'zeppelin-solidity/contracts/token/ERC20Basic.sol';
 //import './ERC20Basic.sol';
 
+pragma solidity ^0.4.11;
+
+
+import 'zeppelin-solidity/contracts/SafeMath.sol';
+//import './SafeMath.sol';
+import 'zeppelin-solidity/contracts/token/ERC20Basic.sol';
+//import './ERC20Basic.sol';
+
 
 
 contract Foundation {
@@ -219,6 +227,8 @@ contract Erc20Found is ERC20Basic {
   }
 
 
+
+
   /*
    * @dev Transfer tokens from one address to another
    * @dev If foundation support is enabled for user
@@ -227,44 +237,17 @@ contract Erc20Found is ERC20Basic {
    * @param _value uint the amout of tokens to be transfered
    */
 
-/*
+
   function transferFrom(address _from, address _to, uint _value) onlyPayloadSize(3 * 32) {
     require(_value>0);
-    uint _allowance;
-    bytes32 fOwner;
-    bytes32 fSpender;
-    if (hasFName(msg.sender) && foundP[getFoundId(msg.sender)]==true)  {
-      if (hasFName(_from) && foundP[getFoundId(_from)]==true) {
-        fOwner=getFoundId(_from);
-        fSpender=getFoundId(msg.sender);
-        require(allowedFb[fOwner][fSpender]>=_value);
-        allowedFb[fOwner][fSpender]=allowedFb[fOwner][fSpender].sub(_value);
-        transferP(_from, _to, _value);
-      }
-      else {
-        fSpender=getFoundId(msg.sender);
-        require(allowedb[_from][fSpender]>=_value);
-        allowedb[_from][fSpender]=allowedb[_from][fSpender].sub(_value);
-        transferP(_from, _to, _value);
-      }
-    }
-    else {
-      if (hasFName(_from) && foundP[getFoundId(_from)]==true) {
-        fOwner=getFoundId(from);
-        require(allowedFa[fOwner][msg.sender]>=_value);
-        allowedFa[fOwner][msg.sender]=allowedFa[fOwner][msg.sender].sub(_value);
-        transferP(_from, _to, _value);
-      }
-      else {
-        require(alloweda[_from][msg.sender]>=_value);
-        alloweda[_from][msg.sender]=alloweda[_from][msg.sender].sub(_value);
-        transferP(_from, _to, _value);
-      }
+    uint currentAllowance = allowance(_from, msg.sender);
+    require(currentAllowance>=_value);
+    uint newValue = currentAllowance.sub(_value);
+    approvePrivate(_from, msg.sender, 0);
+    approvePrivate(_from, msg.sender, newValue);
+    transferPrivate(_from, _to, _value);
   }
 
-
-  }
-*/
 
 
   function approveFtoF(address _owner, address _spender, uint _value) private {
@@ -294,6 +277,33 @@ contract Erc20Found is ERC20Basic {
   }
 
 
+
+
+  function approvePrivate(address _owner, address _spender, uint _value) private {
+
+    // To change the approve amount you first have to reduce the addresses`
+    //  allowance to zero by calling `approve(_spender, 0)` if it is not
+    //  already 0 to mitigate the race condition described here:
+    //  https://github.com/ethereum/EIPs/issues/20#issuecomment-263524729
+    //    require(_value>0);
+
+    //    if ((_value != 0) && (allowed[msg.sender][_spender] != 0)) throw;
+   bool ownerF=useFoundP(_owner);
+   bool spenderF=useFoundP(_spender);
+   if (ownerF && spenderF) {
+      approveFtoF(_owner, _spender, _value);
+    }
+    if (ownerF && !spenderF) {
+      approveFtoA(_owner, _spender, _value);
+    }
+    if (!ownerF && spenderF) {
+      approveAtoF(_owner, _spender, _value);
+    }
+    if (!ownerF && !spenderF) {
+      approveAtoA(_owner, _spender, _value);
+    }
+  }
+
   /*
    * @dev Aprove the passed address to spend the specified amount of tokens on beahlf of msg.sender.
    * @param _spender The address which will spend the funds.
@@ -304,29 +314,7 @@ contract Erc20Found is ERC20Basic {
   //what happens when an address becomes a foundationid? or the other way around?  approval won't exist anymore.
 
  function approve(address _spender, uint _value) {
-
-    // To change the approve amount you first have to reduce the addresses`
-    //  allowance to zero by calling `approve(_spender, 0)` if it is not
-    //  already 0 to mitigate the race condition described here:
-    //  https://github.com/ethereum/EIPs/issues/20#issuecomment-263524729
-    //    require(_value>0);
-
-    //    if ((_value != 0) && (allowed[msg.sender][_spender] != 0)) throw;
-   bool ownerF=useFoundP(msg.sender);
-   bool spenderF=useFoundP(_spender);
-
-   if (ownerF && spenderF) {
-      approveFtoF(msg.sender, _spender, _value);
-    }
-    if (ownerF && !spenderF) {
-      approveFtoA(msg.sender, _spender, _value);
-    }
-    if (!ownerF && spenderF) {
-      approveAtoF(msg.sender, _spender, _value);
-    }
-    if (!ownerF && !spenderF) {
-      approveAtoA(msg.sender, _spender, _value);
-    }
+   approvePrivate(msg.sender, _spender, _value);
   }
 
 
