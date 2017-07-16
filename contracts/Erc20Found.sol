@@ -6,13 +6,6 @@ import 'zeppelin-solidity/contracts/SafeMath.sol';
 import 'zeppelin-solidity/contracts/token/ERC20Basic.sol';
 //import './ERC20Basic.sol';
 
-pragma solidity ^0.4.11;
-
-
-import 'zeppelin-solidity/contracts/SafeMath.sol';
-//import './SafeMath.sol';
-import 'zeppelin-solidity/contracts/token/ERC20Basic.sol';
-//import './ERC20Basic.sol';
 
 
 
