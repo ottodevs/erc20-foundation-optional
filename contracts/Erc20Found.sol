@@ -6,6 +6,14 @@ import 'zeppelin-solidity/contracts/SafeMath.sol';
 import 'zeppelin-solidity/contracts/token/ERC20Basic.sol';
 //import './ERC20Basic.sol';
 
+/**
+@title Foundation
+@author Timothy Galebach, Jared Bowie
+@dev An ID that unifies a single users multiple addresses on the Ethereum blockchain.
+*/
+
+
+
 contract Foundation {
   uint addrSize;
   function resolveToName(address _addr) constant returns (bytes32) {}
@@ -39,7 +47,13 @@ contract Erc20Found is ERC20Basic {
   mapping(address => uint) private balances;
   mapping(bytes32 => uint) private balancesF;
 
-  mapping (address => mapping (address => uint)) allowed;
+
+  mapping (address => mapping (address => uint)) alloweda;
+  mapping (address => mapping (bytes32 => uint)) allowedb;
+  mapping (bytes32 => mapping (address => uint)) allowedFa;
+  mapping (bytes32 => mapping (bytes32 => uint)) allowedFb;
+
+
   mapping(bytes32 => bool) foundP; //foundationid to bool
   mapping(bytes32 => bool) mutex;
 
@@ -110,8 +124,10 @@ contract Erc20Found is ERC20Basic {
   }
 
   function transferF(bytes32 _foundIdTo, uint _value) onlyPayloadSize(2 * 32) {
-    bytes32 foundIdFrom=getFoundId(msg.sender);
+    //require is a valid toname
+    bytes32 foundIdFrom;
     if (foundP[foundIdFrom]==true) {
+      foundIdFrom=getFoundId(msg.sender);
       balancesF[foundIdFrom] = balancesF[foundIdFrom].sub(_value);
       balancesF[_foundIdTo] = balancesF[_foundIdTo].add(_value);
       //      TransferFtF(msg.sender, _to, _value);
@@ -135,20 +151,6 @@ contract Erc20Found is ERC20Basic {
     balancesF[foundId] = balancesF[foundId].add(totalBalance);
   }
 
-  function transfer(address _to, uint _value) onlyPayloadSize(2 * 32) {
-    bytes32 foundId=getFoundId(msg.sender);
-    if (foundP[foundId]==true) {
-      balancesF[foundId] = balancesF[foundId].sub(_value);
-      balances[_to] = balances[_to].add(_value);
-      //Transfer(msg.sender, _to, _value);
-      }
-    else {
-      balances[msg.sender] = balances[msg.sender].sub(_value);
-      balances[_to] = balances[_to].add(_value);
-      Transfer(msg.sender, _to, _value);
-    }
-
-  }
 
 
 
@@ -177,6 +179,69 @@ contract Erc20Found is ERC20Basic {
     return true;
   }
 
+
+  function transferAtoA (address _from, address _to, uint _value) private {
+    require(balances[_from]>=_value);
+    balances[_from] = balances[_from].sub(_value);
+    balances[_to] = balances[_to].add(_value);
+  }
+
+  function transferAtoF  (address _from, address _to, uint _value) private {
+    require(hasFName(_to) && foundP[getFoundId(_to)]==true);
+    require(balances[_from]>=_value);
+    bytes32 toF = getFoundId(_to);
+    balances[_from] = balances[_from].sub(_value);
+    balancesF[toF] = balancesF[toF].add(_value);
+  }
+
+  function transferFtoF  (address _from, address _to, uint _value) private {
+    require(hasFName(_from) && foundP[getFoundId(_from)]==true);
+    require(hasFName(_to) && foundP[getFoundId(_to)]==true);
+    bytes32 fromF = getFoundId(_from);
+    require(balancesF[fromF]>=_value);
+    bytes32 toF = getFoundId(_to);
+    balancesF[fromF] = balancesF[fromF].sub(_value);
+    balancesF[toF] = balancesF[toF].add(_value);
+  }
+
+  function transferFtoA  (address _from, address _to, uint _value) private {
+    require(hasFName(_from) && foundP[getFoundId(_from)]==true);
+    bytes32 fromF = getFoundId(_to);
+    require(balancesF[fromF]>=_value);
+    balancesF[fromF] = balancesF[fromF].sub(_value);
+    balances[_to] = balances[_to].add(_value);
+  }
+
+
+  function transferPrivate(address _from, address _to, uint _value) private {
+    bool fromF=false;
+    bool toF=false;
+    if (hasFName(_from) && foundP[getFoundId(_from)]==true) {
+      fromF=true;
+    }
+    if (hasFName(_to) && foundP[getFoundId(_to)]==true) {
+      toF=true;
+    }
+    if (fromF && toF) {
+      transferFtoF(_from, _to, _value);
+    }
+    if (fromF && !toF) {
+      transferFtoA(_from, _to, _value);
+    }
+    if (!fromF && toF) {
+      transferAtoF(_from, _to, _value);
+    }
+    if (!fromF && !toF) {
+      transferAtoA(_from, _to, _value);
+    }
+  }
+
+
+  function transfer(address _to, uint _value) onlyPayloadSize(2 * 32) {
+    transferPrivate(msg.sender, _to, _value);
+  }
+
+
   /*
    * @dev Transfer tokens from one address to another
    * @dev If foundation support is enabled for user
@@ -185,23 +250,66 @@ contract Erc20Found is ERC20Basic {
    * @param _value uint the amout of tokens to be transfered
    */
   /*
+
   function transferFrom(address _from, address _to, uint _value) onlyPayloadSize(3 * 32) {
+    require(_value>0);
     uint _allowance;
-    if (areSameId(_from, _to)) {
-      _allowance = balaces[_from];
+    bytes32 fOwner;
+    bytes32 fSpender;
+    if (hasFName(msg.sender) && foundP[getFoundId(msg.sender)]==true)  {
+      if (hasFName(_from) && foundP[getFoundId(_from)]==true) {
+        fOwner=getFoundId(_from);
+        fSpender=getFoundId(msg.sender);
+        require(allowedFb[fOwner][fSpender]>=_value);
+        allowedFb[fOwner][fSpender]=allowedFb[fOwner][fSpender].sub(_value);
+        transferP(_from, _to, _value);
+      }
+      else {
+        fSpender=getFoundId(msg.sender);
+        require(allowedb[_from][fSpender]>=_value);
+        allowedb[_from][fSpender]=allowedb[_from][fSpender].sub(_value);
+        transferP(_from, _to, _value);
+      }
     }
     else {
-      _allowance = allowed[_from][msg.sender];
+      if (hasFName(_from) && foundP[getFoundId(_from)]==true) {
+        fOwner=getFoundId(from);
+        require(allowedFa[fOwner][msg.sender]>=_value);
+        allowedFa[fOwner][msg.sender]=allowedFa[fOwner][msg.sender].sub(_value);
+        transferP(_from, _to, _value);
+      }
+      else {
+        require(alloweda[_from][msg.sender]>=_value);
+        alloweda[_from][msg.sender]=alloweda[_from][msg.sender].sub(_value);
+        transferP(_from, _to, _value);
+      }
+  }
+
+
+  }
+
+
+  function approveF(bytes32 _spender, uint _value) {
+
+    // To change the approve amount you first have to reduce the addresses`
+    //  allowance to zero by calling `approve(_spender, 0)` if it is not
+    //  already 0 to mitigate the race condition described here:
+    //  https://github.com/ethereum/EIPs/issues/20#issuecomment-263524729
+    //    require(_value>0);
+
+
+    //    if ((_value != 0) && (allowed[msg.sender][_spender] != 0)) throw;
+    if (hasFName(msg.sender) && foundP[getFoundId(msg.sender)]==true)  {
+      bytes32 foundId = getFoundId(msg.sender);
+      require(allowedFb[foundId][_spender]==0 || _value>0);
+      allowedFb[foundId][_spender] = _value;
     }
-
-    // Check is not needed because sub(_allowance, _value) will already throw if this condition is not met
-    // if (_value > _allowance) throw;
-
-    balances[_to] = balances[_to].add(_value);
-    balances[_from] = balances[_from].sub(_value);
-    allowed[_from][msg.sender] = _allowance.sub(_value);
-    Transfer(_from, _to, _value);
-  }*/
+    else {
+      require(allowedb[msg.sender][_spender]==0 || _value>0);
+      allowedb[msg.sender][_spender] = _value;
+      //Approval(msg.sender, _spender, _value);
+    }
+  }
 
   /*
    * @dev Aprove the passed address to spend the specified amount of tokens on beahlf of msg.sender.
@@ -209,31 +317,61 @@ contract Erc20Found is ERC20Basic {
    * @param _value The amount of tokens to be spent.
    */
 
-  function approve(address _spender, uint _value) {
+ /* function approve(address _spender, uint _value) {
 
     // To change the approve amount you first have to reduce the addresses`
     //  allowance to zero by calling `approve(_spender, 0)` if it is not
     //  already 0 to mitigate the race condition described here:
     //  https://github.com/ethereum/EIPs/issues/20#issuecomment-263524729
     //    require(_value>0);
-    require(allowed[msg.sender][_spender]==0 || _value>0);
-    //    if ((_value != 0) && (allowed[msg.sender][_spender] != 0)) throw;
-    allowed[msg.sender][_spender] = _value;
-    Approval(msg.sender, _spender, _value);
-  }
 
+
+    //    if ((_value != 0) && (allowed[msg.sender][_spender] != 0)) throw;
+    if (hasFName(msg.sender) && foundP[getFoundId(msg.sender)]==true)  {
+      bytes32 foundId = getFoundId(msg.sender);
+      require(allowedFa[foundId][_spender]==0 || _value>0);
+      allowedFa[foundId][_spender] = _value;
+    }
+    else {
+      require(alloweda[msg.sender][_spender]==0 || _value>0);
+      alloweda[msg.sender][_spender] = _value;
+      Approval(msg.sender, _spender, _value);
+    }
+  }
+*/
   /*
    * @dev Function to check the amount of tokens than an owner allowed to a spender.
    * @param _owner address The address which owns the funds.
    * @param _spender address The address which will spend the funds.
    * @return A uint specifing the amount of tokens still avaible for the spender.
    */
-  /*
+/*
   function allowance(address _owner, address _spender) constant returns (uint remaining) {
-    return allowed[_owner][_spender];
-  }
-  */
+    bytes32 fOwner;
+    bytes32 fSpender;
+    if (hasFName(_owner) && foundP[getFoundId(_owner)]==true)  {
 
+      if (hasFName(_spender) && foundP[getFoundId(_spender)]==true) {
+        fOwner=getFoundId(_owner);
+        fSpender=getFoundId(_spender);
+        return allowedFb[fOwner][fSpender];
+      }
+      else {
+        fOwner=getFoundId(_owner);
+        return allowedFa[fOwner][_spender];
+      }
+    }
+    else {
+      if (hasFName(_spender) && foundP[getFoundId(_spender)]==true) {
+        fSpender=getFoundId(_spender);
+        return allowedb[_owner][fSpender];
+      }
+      else {
+        return alloweda[_owner][_spender];
+      }
+  }
+  }
+*/
 
   // must prevent any usage of addresses while in operation
   //
@@ -266,6 +404,7 @@ contract Erc20Found is ERC20Basic {
   * @param _owner The address to query the the balance of.
   * @return An uint representing the amount owned by the passed address.
   */
+
   function balanceOf(address _owner) constant returns (uint balance) {
     if (hasFName(_owner) && foundP[getFoundId(_owner)]==true)  {
       bytes32 foundId=getFoundId(_owner);
