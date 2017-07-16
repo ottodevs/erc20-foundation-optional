@@ -5,4 +5,4 @@ This is foundationId togglable ERC20 compatible token.
 <p>The code has not been fully tested.  Be careful.
 <br>The code has not been audited for security bugs.  Be careful. 
 
-<p>The ideal approach is to force FoundationId to be used from the start and/or to not have things toggable.  Allowing users to move from an address based system to a foundationId and allowing backward compatibility brings up a number of ways for serious bugs to enter the codebase.
+<p>This contract is an experiment with allowing optional support of Foundation.  It is possible to do, but there are a number of bugs that can easily enter the system.  The codebase can also become quite complex.  
